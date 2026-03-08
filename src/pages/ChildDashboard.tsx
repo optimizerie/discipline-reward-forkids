@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { navigate, useChildSession } from '../App';
 import {
   getChildActivities, getLogsForDate, logActivity, unlogActivity,
@@ -68,6 +68,7 @@ export function ChildDashboard() {
   const [showCelebration, setShowCelebration] = useState(false);
   const [celebImage, setCelebImage] = useState<string | null>(null);
   const [celebImageLoading, setCelebImageLoading] = useState(false);
+  const celebrationShownRef = useRef(false);
 
   const todayPoints = activities
     .filter(a => completedToday.has(a.activity_id))
@@ -107,7 +108,12 @@ export function ChildDashboard() {
   useEffect(() => {
     if (activities.length === 0 || loading || activeTab !== 'today') return;
     const allDone = activities.every(a => completedToday.has(a.activity_id));
-    if (allDone && !showCelebration) {
+    if (!allDone) {
+      celebrationShownRef.current = false;
+      return;
+    }
+    if (allDone && !celebrationShownRef.current) {
+      celebrationShownRef.current = true;
       setShowCelebration(true);
       setCelebImageLoading(true);
       generateEncouragingImage(
@@ -115,7 +121,7 @@ export function ChildDashboard() {
         'The child completed ALL their daily activities! Show a big celebration with confetti, stars, trophies, and a very happy child'
       ).then(img => { setCelebImage(img); setCelebImageLoading(false); });
     }
-  }, [completedToday, activities, loading, childName, showCelebration, activeTab]);
+  }, [completedToday, activities, loading, childName, activeTab]);
 
   const handleToggle = async (act: ChildActivity, date: string, completed: Set<string>, setCompleted: (s: Set<string>) => void) => {
     const actId = act.activity_id;
