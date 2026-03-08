@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { signIn, signUp } from '../lib/supabase';
+import { signIn, signUp, resetPassword } from '../lib/supabase';
 import { navigate } from '../App';
 
-type Mode = 'login' | 'signup';
+type Mode = 'login' | 'signup' | 'forgot';
 
 export function ParentAuthPage() {
   const [mode, setMode] = useState<Mode>('login');
@@ -28,13 +28,21 @@ export function ParentAuthPage() {
         } else {
           navigate('/parent/dashboard');
         }
-      } else {
+      } else if (mode === 'signup') {
         const { error: err } = await signUp(email, password);
         if (err) {
           setError(err.message);
         } else {
-          setSuccessMsg('Account created! Check your email to confirm, then log in.');
+          setSuccessMsg('Account created! You can now log in.');
           setMode('login');
+        }
+      } else {
+        const redirectTo = `${window.location.origin}${window.location.pathname}#/reset-password`;
+        const { error: err } = await resetPassword(email, redirectTo);
+        if (err) {
+          setError(err.message);
+        } else {
+          setSuccessMsg('Check your email for a password reset link!');
         }
       }
     } catch {
@@ -53,29 +61,33 @@ export function ParentAuthPage() {
 
         <span className="auth-logo">🔑</span>
         <h1 className="auth-title">
-          {mode === 'login' ? 'Welcome back!' : 'Create account'}
+          {mode === 'login' ? 'Welcome back!' : mode === 'signup' ? 'Create account' : 'Reset password'}
         </h1>
         <p className="auth-sub">
           {mode === 'login'
-            ? 'Log in to manage your kids\' quests and progress.'
-            : 'Set up KidQuest for your family today!'}
+            ? "Log in to manage your kids' quests and progress."
+            : mode === 'signup'
+            ? 'Set up KidQuest for your family today!'
+            : "Enter your email and we'll send you a reset link."}
         </p>
 
-        {/* Tabs */}
-        <div className="tabs" style={{ marginBottom: 24 }}>
-          <button
-            className={`tab ${mode === 'login' ? 'active' : ''}`}
-            onClick={() => { setMode('login'); setError(''); setSuccessMsg(''); }}
-          >
-            Log In
-          </button>
-          <button
-            className={`tab ${mode === 'signup' ? 'active' : ''}`}
-            onClick={() => { setMode('signup'); setError(''); setSuccessMsg(''); }}
-          >
-            Sign Up
-          </button>
-        </div>
+        {/* Tabs — hidden on forgot mode */}
+        {mode !== 'forgot' && (
+          <div className="tabs" style={{ marginBottom: 24 }}>
+            <button
+              className={`tab ${mode === 'login' ? 'active' : ''}`}
+              onClick={() => { setMode('login'); setError(''); setSuccessMsg(''); }}
+            >
+              Log In
+            </button>
+            <button
+              className={`tab ${mode === 'signup' ? 'active' : ''}`}
+              onClick={() => { setMode('signup'); setError(''); setSuccessMsg(''); }}
+            >
+              Sign Up
+            </button>
+          </div>
+        )}
 
         {error && <div className="alert alert-error">{error}</div>}
         {successMsg && <div className="alert alert-success">{successMsg}</div>}
@@ -95,20 +107,34 @@ export function ParentAuthPage() {
             />
           </div>
 
-          <div className="form-group">
-            <label className="form-label" htmlFor="password">Password</label>
-            <input
-              id="password"
-              type="password"
-              className="form-input"
-              placeholder={mode === 'signup' ? 'At least 6 characters' : 'Your password'}
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              required
-              minLength={6}
-              autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-            />
-          </div>
+          {mode !== 'forgot' && (
+            <div className="form-group">
+              <label className="form-label" htmlFor="password">Password</label>
+              <input
+                id="password"
+                type="password"
+                className="form-input"
+                placeholder={mode === 'signup' ? 'At least 6 characters' : 'Your password'}
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                required
+                minLength={6}
+                autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+              />
+            </div>
+          )}
+
+          {mode === 'login' && (
+            <div style={{ textAlign: 'right', marginTop: -8, marginBottom: 8 }}>
+              <button
+                type="button"
+                className="auth-link"
+                onClick={() => { setMode('forgot'); setError(''); setSuccessMsg(''); }}
+              >
+                Forgot password?
+              </button>
+            </div>
+          )}
 
           <button
             type="submit"
@@ -118,12 +144,18 @@ export function ParentAuthPage() {
           >
             {loading
               ? <><span className="spinner" style={{ width: 18, height: 18 }} /> Working...</>
-              : mode === 'login' ? '🚀 Log In' : '✨ Create Account'}
+              : mode === 'login' ? '🚀 Log In'
+              : mode === 'signup' ? '✨ Create Account'
+              : '📧 Send Reset Link'}
           </button>
         </form>
 
         <div className="auth-switch">
-          {mode === 'login' ? (
+          {mode === 'forgot' ? (
+            <>Remember your password?{' '}
+              <button onClick={() => { setMode('login'); setError(''); setSuccessMsg(''); }}>Back to login</button>
+            </>
+          ) : mode === 'login' ? (
             <>Don't have an account?{' '}
               <button onClick={() => { setMode('signup'); setError(''); }}>Sign up free</button>
             </>

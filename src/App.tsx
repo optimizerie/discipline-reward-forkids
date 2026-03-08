@@ -10,6 +10,7 @@ import { ParentAuthPage } from './pages/ParentAuthPage';
 import { ParentDashboard } from './pages/ParentDashboard';
 import { ChildAccessPage } from './pages/ChildAccessPage';
 import { ChildDashboard } from './pages/ChildDashboard';
+import { ResetPasswordPage } from './pages/ResetPasswordPage';
 
 // ── Auth Context ───────────────────────────────────────────
 
@@ -48,7 +49,8 @@ type Route =
   | { page: 'parent-auth' }
   | { page: 'parent-dashboard' }
   | { page: 'child-access' }
-  | { page: 'child-dashboard' };
+  | { page: 'child-dashboard' }
+  | { page: 'reset-password' };
 
 function parseRoute(): Route {
   const hash = window.location.hash.replace('#', '') || '/';
@@ -57,6 +59,7 @@ function parseRoute(): Route {
   if (hash === '/parent/dashboard') return { page: 'parent-dashboard' };
   if (hash === '/child') return { page: 'child-access' };
   if (hash === '/child/dashboard') return { page: 'child-dashboard' };
+  if (hash === '/reset-password') return { page: 'reset-password' };
   return { page: 'landing' };
 }
 
@@ -86,9 +89,12 @@ export default function App() {
       setLoading(false);
     });
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, sess) => {
+    const { data: listener } = supabase.auth.onAuthStateChange((event, sess) => {
       setSession(sess);
       setUser(sess?.user ?? null);
+      if (event === 'PASSWORD_RECOVERY') {
+        navigate('/reset-password');
+      }
     });
 
     return () => listener.subscription.unsubscribe();
@@ -120,6 +126,9 @@ export default function App() {
       case 'child-dashboard':
         if (!childSession) { navigate('/child'); return <LoadingScreen />; }
         return <ChildDashboard />;
+
+      case 'reset-password':
+        return <ResetPasswordPage />;
 
       default:
         navigate('/');

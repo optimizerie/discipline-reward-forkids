@@ -595,6 +595,7 @@ a { color: inherit; text-decoration: none; }
 .auth-form { display: flex; flex-direction: column; gap: 16px; margin-bottom: 24px; }
 .auth-switch { text-align: center; font-size: 14px; font-weight: 600; color: var(--gray-600); }
 .auth-switch button { color: var(--purple); font-weight: 800; text-decoration: underline; }
+.auth-link { background: none; border: none; padding: 0; color: var(--purple); font-size: 13px; font-weight: 600; cursor: pointer; text-decoration: underline; }
 
 /* ── Parent Dashboard ────────────────────────────────────── */
 .dashboard-header {

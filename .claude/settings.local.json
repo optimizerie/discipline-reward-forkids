@@ -3,7 +3,10 @@
     "allow": [
       "Bash(mkdir:*)",
       "Bash(npx tsc:*)",
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "Bash(gh repo:*)",
+      "Bash(cmd:*)",
+      "Bash(curl:*)"
     ]
   }
 }
