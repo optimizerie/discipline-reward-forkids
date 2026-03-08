@@ -1,23 +1,18 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useRef } from 'react';
 import { navigate, useChildSession } from '../App';
-import { findChildrenForAccess, verifyChildAccess } from '../lib/supabase';
+import { findChildByBirthdateAndPin } from '../lib/supabase';
 import { hashPin, setChildSession } from '../lib/auth';
-
-interface ChildOption {
-  id: string;
-  name: string;
-  avatar_color: string;
-}
-
-type Step = 'pick-child' | 'birthdate' | 'pin';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { GeminiIcon } from '@/components/GeminiIcon';
+import { ICON_KEYS } from '@/lib/gemini';
+import { cn } from '@/lib/utils';
 
 export function ChildAccessPage() {
   const { setChildSession: setCtxChildSession } = useChildSession();
-  const [children, setChildren] = useState<ChildOption[]>([]);
-  const [loading, setLoading] = useState(true);
 
-  const [step, setStep] = useState<Step>('pick-child');
-  const [selectedChild, setSelectedChild] = useState<ChildOption | null>(null);
   const [birthdate, setBirthdate] = useState('');
   const [pinDigits, setPinDigits] = useState(['', '', '', '']);
   const [error, setError] = useState('');
@@ -30,28 +25,6 @@ export function ChildAccessPage() {
     useRef<HTMLInputElement>(null),
   ];
 
-  useEffect(() => {
-    findChildrenForAccess().then(kids => {
-      setChildren(kids);
-      setLoading(false);
-    });
-  }, []);
-
-  const handlePickChild = (child: ChildOption) => {
-    setSelectedChild(child);
-    setError('');
-    setStep('birthdate');
-  };
-
-  const handleBirthdate = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!birthdate) return;
-    setError('');
-    setStep('pin');
-    // Focus first PIN digit
-    setTimeout(() => pinRefs[0].current?.focus(), 100);
-  };
-
   const handlePinChange = (index: number, value: string) => {
     const digit = value.replace(/\D/g, '').slice(-1);
     const newDigits = [...pinDigits];
@@ -61,12 +34,10 @@ export function ChildAccessPage() {
     if (digit && index < 3) {
       pinRefs[index + 1].current?.focus();
     }
-
-    // Auto-submit when all 4 digits entered
     if (digit && index === 3) {
       const fullPin = [...newDigits.slice(0, 3), digit].join('');
-      if (fullPin.length === 4) {
-        setTimeout(() => submitPin(fullPin), 100);
+      if (fullPin.length === 4 && birthdate) {
+        setTimeout(() => submitCredentials(birthdate, fullPin), 100);
       }
     }
   };
@@ -77,23 +48,26 @@ export function ChildAccessPage() {
     }
   };
 
-  const submitPin = async (pin: string) => {
-    if (!selectedChild || !birthdate) return;
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const fullPin = pinDigits.join('');
+    if (!birthdate || fullPin.length !== 4) return;
+    submitCredentials(birthdate, fullPin);
+  };
+
+  const submitCredentials = async (bd: string, pin: string) => {
     setVerifying(true);
     setError('');
-
     try {
       const pinHash = await hashPin(pin);
-      const child = await verifyChildAccess(selectedChild.id, birthdate, pinHash);
-
+      const child = await findChildByBirthdateAndPin(bd, pinHash);
       if (!child) {
-        setError("That doesn't match — try again!");
+        setError("That doesn't match — check your birthdate and PIN and try again.");
         setPinDigits(['', '', '', '']);
         setTimeout(() => pinRefs[0].current?.focus(), 100);
         setVerifying(false);
         return;
       }
-
       const session = {
         childId: child.id,
         childName: child.name,
@@ -110,177 +84,92 @@ export function ChildAccessPage() {
     }
   };
 
-  const getInitials = (name: string) =>
-    name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
-
   return (
-    <div className="child-access-page">
-      <div className="child-access-card">
-        {/* Back button */}
-        {step !== 'pick-child' ? (
-          <button
-            className="auth-back"
-            onClick={() => {
-              setError('');
-              if (step === 'pin') { setPinDigits(['', '', '', '']); setStep('birthdate'); }
-              else { setStep('pick-child'); setSelectedChild(null); setBirthdate(''); }
-            }}
-          >
-            ← Back
-          </button>
-        ) : (
-          <button className="auth-back" onClick={() => navigate('/')}>
-            ← Home
-          </button>
-        )}
+    <div className="min-h-screen bg-gradient-to-br from-violet-50 via-purple-50 to-orange-50 flex items-center justify-center p-4">
+      <div className="w-full max-w-sm">
+        <Button variant="ghost" size="sm" className="mb-4" onClick={() => navigate('/')}>
+          Back to Home
+        </Button>
 
-        {/* Step: Pick Child */}
-        {step === 'pick-child' && (
-          <>
-            <h1 className="child-access-title">Who are you? 👋</h1>
-            <p className="child-access-sub">Tap your name to start your quest!</p>
+        <Card className="shadow-xl">
+          <CardHeader className="text-center pb-2">
+            <div className="flex justify-center mb-3">
+              <GeminiIcon iconKey={ICON_KEYS.CHILD_ACCESS} size={72} className="rounded-2xl" />
+            </div>
+            <CardTitle className="text-2xl">Start your quests!</CardTitle>
+            <CardDescription>Enter your birthday and secret PIN</CardDescription>
+          </CardHeader>
 
-            {loading ? (
-              <div style={{ textAlign: 'center', padding: 40 }}>
-                <div className="spinner" style={{ margin: '0 auto 16px' }} />
-                <div style={{ color: 'var(--gray-600)', fontWeight: 700 }}>Loading...</div>
-              </div>
-            ) : children.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: 32 }}>
-                <div style={{ fontSize: 48, marginBottom: 12 }}>😢</div>
-                <p style={{ color: 'var(--gray-600)', fontWeight: 700 }}>
-                  No children set up yet. Ask your parent to add you!
-                </p>
-                <button
-                  className="btn-primary"
-                  style={{ marginTop: 16 }}
-                  onClick={() => navigate('/parent/auth')}
-                >
-                  Parent Login
-                </button>
-              </div>
-            ) : (
-              <div className="child-picker-grid">
-                {children.map(child => (
-                  <button
-                    key={child.id}
-                    className="child-pick-btn"
-                    onClick={() => handlePickChild(child)}
-                  >
-                    <div
-                      className="child-pick-avatar"
-                      style={{ background: child.avatar_color }}
-                    >
-                      {getInitials(child.name)}
-                    </div>
-                    <div className="child-pick-name">{child.name}</div>
-                  </button>
-                ))}
+          <CardContent className="pt-4">
+            {error && (
+              <div className="mb-4 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-sm font-semibold p-3 text-center">
+                {error}
               </div>
             )}
-          </>
-        )}
 
-        {/* Step: Birthdate */}
-        {step === 'birthdate' && selectedChild && (
-          <>
-            <div style={{ marginBottom: 20, textAlign: 'center' }}>
-              <div
-                style={{
-                  width: 72, height: 72, borderRadius: '50%',
-                  background: selectedChild.avatar_color,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 28, fontWeight: 900, color: '#fff',
-                  margin: '0 auto 12px',
-                  boxShadow: '0 4px 16px rgba(0,0,0,0.2)'
-                }}
-              >
-                {getInitials(selectedChild.name)}
-              </div>
-              <div style={{ fontSize: 22, fontWeight: 900 }}>Hi, {selectedChild.name}!</div>
-            </div>
-
-            <h2 className="child-access-title" style={{ fontSize: 22 }}>When's your birthday? 🎂</h2>
-            <p className="child-access-sub">Enter your date of birth</p>
-
-            {error && <div className="alert alert-error">{error}</div>}
-
-            <form onSubmit={handleBirthdate}>
-              <input
-                type="date"
-                className="form-input"
-                value={birthdate}
-                onChange={e => setBirthdate(e.target.value)}
-                required
-                style={{ fontSize: 18, padding: '14px 16px', marginBottom: 20 }}
-                max={new Date().toISOString().split('T')[0]}
-              />
-              <button
-                type="submit"
-                className="btn-primary btn-full btn-lg"
-              >
-                Next →
-              </button>
-            </form>
-          </>
-        )}
-
-        {/* Step: PIN */}
-        {step === 'pin' && selectedChild && (
-          <>
-            <div style={{ marginBottom: 20, textAlign: 'center' }}>
-              <div
-                style={{
-                  width: 72, height: 72, borderRadius: '50%',
-                  background: selectedChild.avatar_color,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 28, fontWeight: 900, color: '#fff',
-                  margin: '0 auto 12px',
-                  boxShadow: '0 4px 16px rgba(0,0,0,0.2)'
-                }}
-              >
-                {getInitials(selectedChild.name)}
-              </div>
-            </div>
-
-            <h2 className="child-access-title" style={{ fontSize: 22 }}>Enter your PIN 🔐</h2>
-            <p className="child-access-sub">Type your 4-digit secret PIN</p>
-
-            {error && <div className="alert alert-error">{error}</div>}
-
-            <div className="pin-input-row">
-              {pinDigits.map((digit, i) => (
-                <input
-                  key={i}
-                  ref={pinRefs[i]}
-                  type="tel"
-                  inputMode="numeric"
-                  maxLength={1}
-                  className={`pin-digit ${digit ? 'filled' : ''}`}
-                  value={digit}
-                  onChange={e => handlePinChange(i, e.target.value)}
-                  onKeyDown={e => handlePinKeyDown(i, e)}
-                  disabled={verifying}
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Birthdate */}
+              <div className="space-y-2">
+                <Label className="text-base font-extrabold">Your Birthday</Label>
+                <Input
+                  type="date"
+                  value={birthdate}
+                  onChange={e => setBirthdate(e.target.value)}
+                  required
+                  max={new Date().toISOString().split('T')[0]}
+                  className="text-base h-12"
                 />
-              ))}
-            </div>
-
-            {verifying ? (
-              <div style={{ textAlign: 'center', padding: 16 }}>
-                <div className="spinner" style={{ margin: '0 auto 12px' }} />
-                <div style={{ color: 'var(--gray-600)', fontWeight: 700 }}>Checking...</div>
               </div>
-            ) : (
-              <button
-                className="btn-primary btn-full btn-lg"
-                onClick={() => submitPin(pinDigits.join(''))}
-                disabled={pinDigits.some(d => !d)}
-              >
-                Let's Go! 🚀
-              </button>
-            )}
-          </>
-        )}
+
+              {/* PIN */}
+              <div className="space-y-3">
+                <Label className="text-base font-extrabold">Your Secret PIN</Label>
+                <div className="flex justify-center gap-3">
+                  {pinDigits.map((digit, i) => (
+                    <input
+                      key={i}
+                      ref={pinRefs[i]}
+                      type="tel"
+                      inputMode="numeric"
+                      maxLength={1}
+                      className={cn(
+                        'w-14 h-14 text-center text-2xl font-black rounded-2xl border-2 outline-none transition-all',
+                        digit
+                          ? 'border-primary bg-primary/10 text-primary'
+                          : 'border-input bg-white text-foreground',
+                        'focus:border-primary focus:ring-2 focus:ring-primary/30 focus:ring-offset-1'
+                      )}
+                      value={digit}
+                      onChange={e => handlePinChange(i, e.target.value)}
+                      onKeyDown={e => handlePinKeyDown(i, e)}
+                      disabled={verifying}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              {verifying ? (
+                <div className="text-center py-3 space-y-2">
+                  <div className="w-8 h-8 rounded-full shimmer-bg mx-auto" />
+                  <p className="text-muted-foreground font-bold text-sm">Checking...</p>
+                </div>
+              ) : (
+                <Button
+                  type="submit"
+                  className="w-full"
+                  size="lg"
+                  disabled={!birthdate || pinDigits.some(d => !d) || verifying}
+                >
+                  Let's Go!
+                </Button>
+              )}
+            </form>
+          </CardContent>
+        </Card>
+
+        <p className="text-center text-xs text-muted-foreground font-semibold mt-4">
+          Ask your parent if you don't remember your PIN
+        </p>
       </div>
     </div>
   );

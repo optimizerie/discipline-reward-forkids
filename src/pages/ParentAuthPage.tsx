@@ -1,6 +1,13 @@
 import { useState } from 'react';
 import { signIn, signUp, resetPassword } from '../lib/supabase';
 import { navigate } from '../App';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { GeminiIcon } from '@/components/GeminiIcon';
+import { ICON_KEYS } from '@/lib/gemini';
 
 type Mode = 'login' | 'signup' | 'forgot';
 
@@ -37,7 +44,7 @@ export function ParentAuthPage() {
           setMode('login');
         }
       } else {
-        const redirectTo = `${window.location.origin}${window.location.pathname}#/reset-password`;
+        const redirectTo = window.location.origin;
         const { error: err } = await resetPassword(email, redirectTo);
         if (err) {
           setError(err.message);
@@ -53,118 +60,140 @@ export function ParentAuthPage() {
   };
 
   return (
-    <div className="auth-page">
-      <div className="auth-card">
-        <button className="auth-back" onClick={() => navigate('/')}>
-          ← Back to Home
-        </button>
+    <div className="min-h-screen bg-gradient-to-br from-violet-50 via-purple-50 to-orange-50 flex items-center justify-center p-4">
+      <div className="w-full max-w-md">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="mb-4"
+          onClick={() => navigate('/')}
+        >
+          Back to Home
+        </Button>
 
-        <span className="auth-logo">🔑</span>
-        <h1 className="auth-title">
-          {mode === 'login' ? 'Welcome back!' : mode === 'signup' ? 'Create account' : 'Reset password'}
-        </h1>
-        <p className="auth-sub">
-          {mode === 'login'
-            ? "Log in to manage your kids' quests and progress."
-            : mode === 'signup'
-            ? 'Set up KidQuest for your family today!'
-            : "Enter your email and we'll send you a reset link."}
-        </p>
-
-        {/* Tabs — hidden on forgot mode */}
-        {mode !== 'forgot' && (
-          <div className="tabs" style={{ marginBottom: 24 }}>
-            <button
-              className={`tab ${mode === 'login' ? 'active' : ''}`}
-              onClick={() => { setMode('login'); setError(''); setSuccessMsg(''); }}
-            >
-              Log In
-            </button>
-            <button
-              className={`tab ${mode === 'signup' ? 'active' : ''}`}
-              onClick={() => { setMode('signup'); setError(''); setSuccessMsg(''); }}
-            >
-              Sign Up
-            </button>
-          </div>
-        )}
-
-        {error && <div className="alert alert-error">{error}</div>}
-        {successMsg && <div className="alert alert-success">{successMsg}</div>}
-
-        <form className="auth-form" onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label className="form-label" htmlFor="email">Email Address</label>
-            <input
-              id="email"
-              type="email"
-              className="form-input"
-              placeholder="you@example.com"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              required
-              autoComplete="email"
-            />
-          </div>
-
-          {mode !== 'forgot' && (
-            <div className="form-group">
-              <label className="form-label" htmlFor="password">Password</label>
-              <input
-                id="password"
-                type="password"
-                className="form-input"
-                placeholder={mode === 'signup' ? 'At least 6 characters' : 'Your password'}
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                required
-                minLength={6}
-                autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-              />
+        <Card className="shadow-xl">
+          <CardHeader className="text-center pb-2">
+            <div className="flex justify-center mb-3">
+              <GeminiIcon iconKey={ICON_KEYS.PARENT_DASHBOARD} size={64} className="rounded-2xl" />
             </div>
-          )}
+            <CardTitle className="text-2xl">
+              {mode === 'login' ? 'Welcome back!' : mode === 'signup' ? 'Create account' : 'Reset password'}
+            </CardTitle>
+            <CardDescription>
+              {mode === 'login'
+                ? "Log in to manage your kids' quests and progress."
+                : mode === 'signup'
+                ? 'Set up KidQuest for your family today!'
+                : "Enter your email and we'll send you a reset link."}
+            </CardDescription>
+          </CardHeader>
 
-          {mode === 'login' && (
-            <div style={{ textAlign: 'right', marginTop: -8, marginBottom: 8 }}>
-              <button
-                type="button"
-                className="auth-link"
-                onClick={() => { setMode('forgot'); setError(''); setSuccessMsg(''); }}
-              >
-                Forgot password?
-              </button>
+          <CardContent className="pt-4">
+            {mode !== 'forgot' && (
+              <Tabs value={mode} onValueChange={(v) => { setMode(v as Mode); setError(''); setSuccessMsg(''); }} className="mb-6">
+                <TabsList>
+                  <TabsTrigger value="login">Log In</TabsTrigger>
+                  <TabsTrigger value="signup">Sign Up</TabsTrigger>
+                </TabsList>
+                <TabsContent value="login" />
+                <TabsContent value="signup" />
+              </Tabs>
+            )}
+
+            {error && (
+              <div className="mb-4 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-sm font-semibold p-3">
+                {error}
+              </div>
+            )}
+            {successMsg && (
+              <div className="mb-4 rounded-xl bg-accent/10 border border-accent/20 text-accent text-sm font-semibold p-3">
+                {successMsg}
+              </div>
+            )}
+
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="email">Email Address</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  required
+                  autoComplete="email"
+                />
+              </div>
+
+              {mode !== 'forgot' && (
+                <div className="space-y-2">
+                  <Label htmlFor="password">Password</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    placeholder={mode === 'signup' ? 'At least 6 characters' : 'Your password'}
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    required
+                    minLength={6}
+                    autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+                  />
+                </div>
+              )}
+
+              {mode === 'login' && (
+                <div className="text-right -mt-2">
+                  <button
+                    type="button"
+                    className="text-sm text-primary font-bold hover:underline"
+                    onClick={() => { setMode('forgot'); setError(''); setSuccessMsg(''); }}
+                  >
+                    Forgot password?
+                  </button>
+                </div>
+              )}
+
+              <Button type="submit" className="w-full" size="lg" disabled={loading}>
+                {loading
+                  ? 'Working...'
+                  : mode === 'login' ? 'Log In'
+                  : mode === 'signup' ? 'Create Account'
+                  : 'Send Reset Link'}
+              </Button>
+            </form>
+
+            <div className="mt-5 text-center text-sm text-muted-foreground font-semibold">
+              {mode === 'forgot' ? (
+                <>Remember your password?{' '}
+                  <button
+                    className="text-primary font-bold hover:underline"
+                    onClick={() => { setMode('login'); setError(''); setSuccessMsg(''); }}
+                  >
+                    Back to login
+                  </button>
+                </>
+              ) : mode === 'login' ? (
+                <>Don't have an account?{' '}
+                  <button
+                    className="text-primary font-bold hover:underline"
+                    onClick={() => { setMode('signup'); setError(''); }}
+                  >
+                    Sign up free
+                  </button>
+                </>
+              ) : (
+                <>Already have an account?{' '}
+                  <button
+                    className="text-primary font-bold hover:underline"
+                    onClick={() => { setMode('login'); setError(''); }}
+                  >
+                    Log in
+                  </button>
+                </>
+              )}
             </div>
-          )}
-
-          <button
-            type="submit"
-            className="btn-primary btn-full"
-            disabled={loading}
-            style={{ marginTop: 8 }}
-          >
-            {loading
-              ? <><span className="spinner" style={{ width: 18, height: 18 }} /> Working...</>
-              : mode === 'login' ? '🚀 Log In'
-              : mode === 'signup' ? '✨ Create Account'
-              : '📧 Send Reset Link'}
-          </button>
-        </form>
-
-        <div className="auth-switch">
-          {mode === 'forgot' ? (
-            <>Remember your password?{' '}
-              <button onClick={() => { setMode('login'); setError(''); setSuccessMsg(''); }}>Back to login</button>
-            </>
-          ) : mode === 'login' ? (
-            <>Don't have an account?{' '}
-              <button onClick={() => { setMode('signup'); setError(''); }}>Sign up free</button>
-            </>
-          ) : (
-            <>Already have an account?{' '}
-              <button onClick={() => { setMode('login'); setError(''); }}>Log in</button>
-            </>
-          )}
-        </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

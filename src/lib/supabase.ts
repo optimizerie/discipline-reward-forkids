@@ -60,7 +60,7 @@ export async function findChildrenForAccess(): Promise<{ id: string; name: strin
   return data ?? [];
 }
 
-// Verify child access
+// Verify child access by ID (legacy)
 export async function verifyChildAccess(childId: string, birthdate: string, pinHash: string): Promise<Child | null> {
   const { data } = await supabase
     .from('children')
@@ -70,6 +70,15 @@ export async function verifyChildAccess(childId: string, birthdate: string, pinH
     .eq('pin_hash', pinHash)
     .single();
   return data;
+}
+
+// Find child by birthdate + PIN only (no name required)
+export async function findChildByBirthdateAndPin(birthdate: string, pinHash: string): Promise<Child | null> {
+  const { data } = await supabase.rpc('find_child_by_credentials', {
+    p_birthdate: birthdate,
+    p_pin_hash: pinHash,
+  });
+  return (data as Child[])?.[0] ?? null;
 }
 
 // Child activities (assigned activities)
@@ -97,31 +106,34 @@ export async function toggleChildActivity(childId: string, activityId: string, i
 }
 
 // Activity logs
-export async function logActivity(childId: string, activityId: string): Promise<void> {
-  const today = new Date().toISOString().split('T')[0];
+export async function logActivity(childId: string, activityId: string, date?: string): Promise<void> {
+  const targetDate = date ?? new Date().toISOString().split('T')[0];
   await supabase.from('activity_logs').upsert(
-    { child_id: childId, activity_id: activityId, completed_date: today },
+    { child_id: childId, activity_id: activityId, completed_date: targetDate },
     { onConflict: 'child_id,activity_id,completed_date' }
   );
 }
 
-export async function unlogActivity(childId: string, activityId: string): Promise<void> {
-  const today = new Date().toISOString().split('T')[0];
+export async function unlogActivity(childId: string, activityId: string, date?: string): Promise<void> {
+  const targetDate = date ?? new Date().toISOString().split('T')[0];
   await supabase.from('activity_logs')
     .delete()
     .eq('child_id', childId)
     .eq('activity_id', activityId)
-    .eq('completed_date', today);
+    .eq('completed_date', targetDate);
 }
 
-export async function getTodayLogs(childId: string): Promise<string[]> {
-  const today = new Date().toISOString().split('T')[0];
+export async function getLogsForDate(childId: string, date: string): Promise<string[]> {
   const { data } = await supabase
     .from('activity_logs')
     .select('activity_id')
     .eq('child_id', childId)
-    .eq('completed_date', today);
-  return (data ?? []).map(d => d.activity_id);
+    .eq('completed_date', date);
+  return (data ?? []).map((d: { activity_id: string }) => d.activity_id);
+}
+
+export async function getTodayLogs(childId: string): Promise<string[]> {
+  return getLogsForDate(childId, new Date().toISOString().split('T')[0]);
 }
 
 export async function getWeeklyPoints(childId: string): Promise<DayPoints[]> {

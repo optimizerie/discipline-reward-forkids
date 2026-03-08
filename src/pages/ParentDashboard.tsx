@@ -7,6 +7,15 @@ import {
 } from '../lib/supabase';
 import { hashPin } from '../lib/auth';
 import type { Child, Activity, ChildActivity, DayPoints } from '../types';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Separator } from '@/components/ui/separator';
+import { GeminiIcon } from '@/components/GeminiIcon';
+import { ICON_KEYS } from '@/lib/gemini';
 
 const AVATAR_COLORS = [
   '#6c5ce7', '#fd7043', '#00b894', '#0984e3', '#e84393',
@@ -35,7 +44,6 @@ export function ParentDashboard() {
     setChildren(kids);
     setLoading(false);
 
-    // Load stats for each child
     for (const kid of kids) {
       const [total, streak, weekly] = await Promise.all([
         getTotalPoints(kid.id),
@@ -60,42 +68,41 @@ export function ParentDashboard() {
     childStats[childId] ?? { totalPoints: 0, streak: 0, weeklyData: [] };
 
   return (
-    <div className="page-layout">
+    <div className="min-h-screen bg-background">
       {/* Navbar */}
-      <nav className="navbar">
-        <div className="navbar-logo">
-          <span className="navbar-logo-icon">🌟</span>
-          KidQuest
+      <nav className="flex items-center justify-between px-6 py-4 bg-white border-b border-border sticky top-0 z-10 shadow-sm">
+        <div className="flex items-center gap-3">
+          <GeminiIcon iconKey={ICON_KEYS.APP_LOGO} size={36} />
+          <span className="text-xl font-black text-primary">KidQuest</span>
         </div>
-        <div className="navbar-actions">
-          <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--gray-600)', marginRight: 4 }}>
-            {user?.email}
-          </span>
-          <button className="btn-ghost btn-sm" onClick={handleSignOut}>Sign Out</button>
+        <div className="flex items-center gap-3">
+          <span className="text-xs font-bold text-muted-foreground hidden sm:block">{user?.email}</span>
+          <Button variant="ghost" size="sm" onClick={handleSignOut}>Sign Out</Button>
         </div>
       </nav>
 
       {/* Content */}
-      <div className="page-content">
-        <div className="dashboard-header">
+      <div className="max-w-5xl mx-auto px-4 py-8">
+        <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="dashboard-title">Parent Dashboard</h1>
-            <p className="dashboard-sub">Manage your children's quests and track their progress</p>
+            <h1 className="text-3xl font-black text-foreground">Parent Dashboard</h1>
+            <p className="text-muted-foreground font-semibold mt-1">Manage your children's quests and track their progress</p>
           </div>
           {children.length < 2 && (
-            <button className="btn-primary" onClick={() => setShowAddChild(true)}>
-              + Add Child
-            </button>
+            <Button onClick={() => setShowAddChild(true)} className="gap-2">
+              <GeminiIcon iconKey={ICON_KEYS.ADD_CHILD} size={20} className="rounded-md" />
+              Add Child
+            </Button>
           )}
         </div>
 
         {loading ? (
-          <div style={{ textAlign: 'center', padding: 60 }}>
-            <div className="spinner" style={{ width: 40, height: 40, margin: '0 auto 16px' }} />
-            <div style={{ color: 'var(--gray-600)', fontWeight: 700 }}>Loading your children...</div>
+          <div className="flex flex-col items-center justify-center py-20 gap-4">
+            <div className="w-10 h-10 rounded-full shimmer-bg" />
+            <p className="text-muted-foreground font-bold">Loading your children...</p>
           </div>
         ) : (
-          <div className="children-grid">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {children.map(child => (
               <ChildCard
                 key={child.id}
@@ -108,47 +115,76 @@ export function ParentDashboard() {
 
             {children.length === 0 && (
               <div
-                className="add-child-card"
-                style={{ gridColumn: '1 / -1' }}
+                className="col-span-full border-2 border-dashed border-border rounded-2xl p-12 flex flex-col items-center gap-4 cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors"
                 onClick={() => setShowAddChild(true)}
               >
-                <div className="add-child-icon">👶</div>
-                <div className="add-child-text">Add your first child to get started!</div>
-                <button className="btn-primary">+ Add Child</button>
+                <GeminiIcon iconKey={ICON_KEYS.ADD_CHILD} size={64} className="rounded-2xl" />
+                <p className="text-muted-foreground font-bold text-center">Add your first child to get started!</p>
+                <Button onClick={() => setShowAddChild(true)}>Add Child</Button>
               </div>
             )}
 
             {children.length === 1 && (
-              <div className="add-child-card" onClick={() => setShowAddChild(true)}>
-                <div className="add-child-icon">➕</div>
-                <div className="add-child-text">Add another child</div>
+              <div
+                className="border-2 border-dashed border-border rounded-2xl p-8 flex flex-col items-center gap-3 cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors"
+                onClick={() => setShowAddChild(true)}
+              >
+                <GeminiIcon iconKey={ICON_KEYS.ADD_CHILD} size={48} className="rounded-xl" />
+                <p className="text-muted-foreground font-bold text-sm">Add another child</p>
               </div>
             )}
           </div>
         )}
       </div>
 
-      {showAddChild && (
-        <AddChildModal
-          parentId={user!.id}
-          onClose={() => setShowAddChild(false)}
-          onSaved={() => { setShowAddChild(false); loadChildren(); }}
-        />
-      )}
+      {/* Add Child Dialog */}
+      <Dialog open={showAddChild} onOpenChange={setShowAddChild}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add a Child</DialogTitle>
+            <DialogDescription>Set up a profile for your child to start their quests!</DialogDescription>
+          </DialogHeader>
+          <AddChildForm
+            parentId={user!.id}
+            onClose={() => setShowAddChild(false)}
+            onSaved={() => { setShowAddChild(false); loadChildren(); }}
+          />
+        </DialogContent>
+      </Dialog>
 
+      {/* Manage Activities Dialog */}
       {manageChildId && (
-        <ManageActivitiesModal
-          child={children.find(c => c.id === manageChildId)!}
-          onClose={() => setManageChildId(null)}
-        />
+        <Dialog open={!!manageChildId} onOpenChange={() => setManageChildId(null)}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Manage Activities</DialogTitle>
+              <DialogDescription>
+                Choose which activities {children.find(c => c.id === manageChildId)?.name} should complete daily
+              </DialogDescription>
+            </DialogHeader>
+            <ManageActivitiesContent
+              child={children.find(c => c.id === manageChildId)!}
+              onClose={() => setManageChildId(null)}
+            />
+          </DialogContent>
+        </Dialog>
       )}
 
+      {/* Change PIN Dialog */}
       {changePinChildId && (
-        <ChangePinModal
-          child={children.find(c => c.id === changePinChildId)!}
-          onClose={() => setChangePinChildId(null)}
-          onSaved={() => { setChangePinChildId(null); loadChildren(); }}
-        />
+        <Dialog open={!!changePinChildId} onOpenChange={() => setChangePinChildId(null)}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Change PIN for {children.find(c => c.id === changePinChildId)?.name}</DialogTitle>
+              <DialogDescription>Enter a new 4-digit PIN</DialogDescription>
+            </DialogHeader>
+            <ChangePinForm
+              child={children.find(c => c.id === changePinChildId)!}
+              onClose={() => setChangePinChildId(null)}
+              onSaved={() => { setChangePinChildId(null); loadChildren(); }}
+            />
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );
@@ -168,46 +204,66 @@ function ChildCard({ child, stats, onManage, onChangePin }: ChildCardProps) {
   const maxPoints = Math.max(...stats.weeklyData.map(d => d.points), 1);
   const today = new Date().toISOString().split('T')[0];
 
+  const streakVariant = stats.streak >= 7 ? 'warning' : stats.streak >= 3 ? 'secondary' : 'default';
+
   return (
-    <div className="child-card">
-      <div className="child-card-banner" style={{ background: `linear-gradient(135deg, ${child.avatar_color}, ${child.avatar_color}aa)` }}>
-        <div className="child-avatar-circle" style={{ background: child.avatar_color }}>
+    <Card className="overflow-hidden">
+      {/* Banner */}
+      <div
+        className="h-16 flex items-end px-6 pb-0 relative"
+        style={{ background: `linear-gradient(135deg, ${child.avatar_color}, ${child.avatar_color}aa)` }}
+      >
+        <div
+          className="w-14 h-14 rounded-full flex items-center justify-center text-white font-black text-xl border-4 border-white shadow-lg translate-y-7 flex-shrink-0"
+          style={{ background: child.avatar_color }}
+        >
           {initials}
         </div>
       </div>
-      <div className="child-card-body">
-        <div className="child-name">{child.name}</div>
 
-        <div className="child-stats-row">
-          <span className="badge badge-purple">⭐ {stats.totalPoints} pts</span>
-          <span className={`badge ${stats.streak >= 7 ? 'badge-yellow' : stats.streak >= 3 ? 'badge-orange' : 'badge-purple'}`}>
-            🔥 {stats.streak} day streak
-          </span>
+      <CardContent className="pt-10 pb-5">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-xl font-black">{child.name}</h3>
+        </div>
+
+        <div className="flex flex-wrap gap-2 mb-4">
+          <Badge variant="default" className="gap-1.5">
+            <GeminiIcon iconKey={ICON_KEYS.POINTS_STAR} size={14} className="rounded-sm" />
+            {stats.totalPoints} pts
+          </Badge>
+          <Badge variant={streakVariant} className="gap-1.5">
+            <GeminiIcon iconKey={ICON_KEYS.STREAK_FIRE} size={14} className="rounded-sm" />
+            {stats.streak} day streak
+          </Badge>
         </div>
 
         {/* Mini bar chart */}
         {stats.weeklyData.length > 0 && (
-          <div className="mini-chart">
-            <div className="mini-chart-title">Last 7 Days</div>
-            <div className="mini-bars">
+          <div className="mb-4">
+            <p className="text-xs font-bold text-muted-foreground mb-2">Last 7 Days</p>
+            <div className="flex items-end gap-1 h-14">
               {stats.weeklyData.map(day => {
                 const isToday = day.date === today;
                 const heightPct = day.points === 0 ? 4 : Math.max(8, (day.points / maxPoints) * 100);
                 const d = new Date(day.date + 'T12:00:00');
                 const label = ['S', 'M', 'T', 'W', 'T', 'F', 'S'][d.getDay()];
                 return (
-                  <div key={day.date} className="mini-bar-wrap">
+                  <div key={day.date} className="flex-1 flex flex-col items-center gap-0.5">
                     <div
-                      className="mini-bar"
+                      className="w-full rounded-sm transition-all"
                       style={{
                         height: `${heightPct}%`,
                         background: isToday ? '#fd7043' : child.avatar_color,
-                        opacity: day.points === 0 ? 0.2 : 1
+                        opacity: day.points === 0 ? 0.2 : 1,
+                        minHeight: 3,
                       }}
                     />
-                    <div className="mini-bar-label" style={{ color: isToday ? '#fd7043' : undefined }}>
+                    <span
+                      className="text-[10px] font-black"
+                      style={{ color: isToday ? '#fd7043' : '#9b94c9' }}
+                    >
                       {isToday ? '•' : label}
-                    </div>
+                    </span>
                   </div>
                 );
               })}
@@ -215,28 +271,30 @@ function ChildCard({ child, stats, onManage, onChangePin }: ChildCardProps) {
           </div>
         )}
 
-        <div className="child-card-actions" style={{ marginTop: 16 }}>
-          <button className="btn-primary btn-sm" onClick={onManage} style={{ flex: 1 }}>
+        <Separator className="mb-4" />
+
+        <div className="flex gap-2">
+          <Button size="sm" className="flex-1" onClick={onManage}>
             Manage Activities
-          </button>
-          <button className="btn-ghost btn-sm" onClick={onChangePin}>
+          </Button>
+          <Button size="sm" variant="ghost" onClick={onChangePin}>
             Change PIN
-          </button>
+          </Button>
         </div>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 }
 
-// ── Add Child Modal ────────────────────────────────────────
+// ── Add Child Form ─────────────────────────────────────────
 
-interface AddChildModalProps {
+interface AddChildFormProps {
   parentId: string;
   onClose: () => void;
   onSaved: () => void;
 }
 
-function AddChildModal({ parentId, onClose, onSaved }: AddChildModalProps) {
+function AddChildForm({ parentId, onClose, onSaved }: AddChildFormProps) {
   const [name, setName] = useState('');
   const [birthdate, setBirthdate] = useState('');
   const [pin, setPin] = useState('');
@@ -274,100 +332,94 @@ function AddChildModal({ parentId, onClose, onSaved }: AddChildModalProps) {
   };
 
   return (
-    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="modal">
-        <div className="modal-header">
-          <h3>Add a Child</h3>
-          <button className="modal-close" onClick={onClose}>✕</button>
+    <form onSubmit={handleSave} className="space-y-4">
+      {error && (
+        <div className="rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-sm font-semibold p-3">
+          {error}
         </div>
-        <p className="modal-sub">Set up a profile for your child to start their quests!</p>
+      )}
 
-        {error && <div className="alert alert-error">{error}</div>}
-
-        <form className="modal-form" onSubmit={handleSave}>
-          <div className="form-group">
-            <label className="form-label">Child's Name</label>
-            <input
-              className="form-input"
-              placeholder="e.g. Alex"
-              value={name}
-              onChange={e => setName(e.target.value)}
-              required
-            />
-          </div>
-
-          <div className="form-group">
-            <label className="form-label">Date of Birth</label>
-            <input
-              type="date"
-              className="form-input"
-              value={birthdate}
-              onChange={e => setBirthdate(e.target.value)}
-              required
-              max={new Date().toISOString().split('T')[0]}
-            />
-            <div style={{ fontSize: 12, color: 'var(--gray-600)', fontWeight: 600 }}>
-              Used to verify your child's identity when logging in
-            </div>
-          </div>
-
-          <div className="form-group">
-            <label className="form-label">4-Digit PIN</label>
-            <input
-              className="form-input"
-              placeholder="e.g. 1234"
-              value={pin}
-              onChange={e => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
-              type="tel"
-              inputMode="numeric"
-              maxLength={4}
-              required
-            />
-          </div>
-
-          <div className="form-group">
-            <label className="form-label">Confirm PIN</label>
-            <input
-              className="form-input"
-              placeholder="Repeat PIN"
-              value={pin2}
-              onChange={e => setPin2(e.target.value.replace(/\D/g, '').slice(0, 4))}
-              type="tel"
-              inputMode="numeric"
-              maxLength={4}
-              required
-            />
-          </div>
-
-          <div className="form-group">
-            <label className="form-label">Avatar Color</label>
-            <div className="color-picker-row">
-              {AVATAR_COLORS.map(c => (
-                <div
-                  key={c}
-                  className={`color-swatch ${avatarColor === c ? 'selected' : ''}`}
-                  style={{ background: c }}
-                  onClick={() => setAvatarColor(c)}
-                />
-              ))}
-            </div>
-          </div>
-
-          <div className="modal-actions">
-            <button type="button" className="btn-ghost" onClick={onClose}>Cancel</button>
-            <button type="submit" className="btn-primary" disabled={saving}>
-              {saving ? <><span className="spinner" style={{ width: 16, height: 16 }} /> Saving...</> : '✨ Add Child'}
-            </button>
-          </div>
-        </form>
+      <div className="space-y-2">
+        <Label>Child's Name</Label>
+        <Input
+          placeholder="e.g. Alex"
+          value={name}
+          onChange={e => setName(e.target.value)}
+          required
+        />
       </div>
-    </div>
+
+      <div className="space-y-2">
+        <Label>Date of Birth</Label>
+        <Input
+          type="date"
+          value={birthdate}
+          onChange={e => setBirthdate(e.target.value)}
+          required
+          max={new Date().toISOString().split('T')[0]}
+        />
+        <p className="text-xs text-muted-foreground font-semibold">Used to verify your child's identity when logging in</p>
+      </div>
+
+      <div className="space-y-2">
+        <Label>4-Digit PIN</Label>
+        <Input
+          placeholder="e.g. 1234"
+          value={pin}
+          onChange={e => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+          type="tel"
+          inputMode="numeric"
+          maxLength={4}
+          required
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label>Confirm PIN</Label>
+        <Input
+          placeholder="Repeat PIN"
+          value={pin2}
+          onChange={e => setPin2(e.target.value.replace(/\D/g, '').slice(0, 4))}
+          type="tel"
+          inputMode="numeric"
+          maxLength={4}
+          required
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label>Avatar Color</Label>
+        <div className="flex flex-wrap gap-2 pt-1">
+          {AVATAR_COLORS.map(c => (
+            <button
+              key={c}
+              type="button"
+              className="w-8 h-8 rounded-full transition-all focus:outline-none"
+              style={{
+                background: c,
+                border: avatarColor === c ? '3px solid #fff' : '3px solid transparent',
+                boxShadow: avatarColor === c ? `0 0 0 3px ${c}` : 'none',
+                transform: avatarColor === c ? 'scale(1.2)' : 'scale(1)',
+              }}
+              onClick={() => setAvatarColor(c)}
+            />
+          ))}
+        </div>
+      </div>
+
+      <div className="flex gap-3 pt-2">
+        <Button type="button" variant="ghost" className="flex-1" onClick={onClose}>Cancel</Button>
+        <Button type="submit" className="flex-1" disabled={saving}>
+          {saving ? 'Saving...' : 'Add Child'}
+        </Button>
+      </div>
+    </form>
   );
 }
 
-// ── Manage Activities Modal ────────────────────────────────
+// ── Manage Activities Content ──────────────────────────────
 
-interface ManageActivitiesModalProps {
+interface ManageActivitiesContentProps {
   child: Child;
   onClose: () => void;
 }
@@ -380,7 +432,7 @@ interface CategoryGroup {
   activities: Activity[];
 }
 
-function ManageActivitiesModal({ child, onClose }: ManageActivitiesModalProps) {
+function ManageActivitiesContent({ child, onClose }: ManageActivitiesContentProps) {
   const [allActivities, setAllActivities] = useState<Activity[]>([]);
   const [childActivityMap, setChildActivityMap] = useState<Record<string, ChildActivity>>({});
   const [loading, setLoading] = useState(true);
@@ -407,7 +459,6 @@ function ManageActivitiesModal({ child, onClose }: ManageActivitiesModalProps) {
     const newActive = current ? !current.is_active : true;
     setSaving(activityId);
 
-    // Optimistic update
     setChildActivityMap(prev => ({
       ...prev,
       [activityId]: {
@@ -422,7 +473,6 @@ function ManageActivitiesModal({ child, onClose }: ManageActivitiesModalProps) {
     setSaving(null);
   };
 
-  // Group by category
   const categoryMap: Record<string, CategoryGroup> = {};
   for (const act of allActivities) {
     const cat = (act as Activity & { activity_categories?: { id: string; name: string; icon: string; color: string } }).activity_categories;
@@ -434,67 +484,64 @@ function ManageActivitiesModal({ child, onClose }: ManageActivitiesModalProps) {
   }
   const categories = Object.values(categoryMap);
 
-  return (
-    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="modal">
-        <div className="modal-header">
-          <h3>Manage Activities</h3>
-          <button className="modal-close" onClick={onClose}>✕</button>
-        </div>
-        <p className="modal-sub">Choose which activities {child.name} should complete daily</p>
-
-        {loading ? (
-          <div style={{ textAlign: 'center', padding: 40 }}>
-            <div className="spinner" style={{ margin: '0 auto' }} />
-          </div>
-        ) : (
-          <div className="activity-toggle-section">
-            {categories.map(cat => (
-              <div key={cat.id} className="activity-toggle-category">
-                <div className="activity-toggle-category-header">
-                  <span style={{ fontSize: 22 }}>{cat.icon}</span>
-                  <span style={{ color: cat.color }}>{cat.name}</span>
-                </div>
-                {cat.activities.map(act => {
-                  const isActive = childActivityMap[act.id]?.is_active ?? false;
-                  return (
-                    <div
-                      key={act.id}
-                      className={`activity-toggle-row ${isActive ? 'active' : ''}`}
-                      onClick={() => handleToggle(act.id)}
-                    >
-                      <span className="activity-toggle-check">
-                        {saving === act.id ? (
-                          <span className="spinner" style={{ width: 18, height: 18 }} />
-                        ) : isActive ? '✅' : '⬜'}
-                      </span>
-                      <span className="activity-toggle-name">{act.name}</span>
-                      <span className="activity-toggle-points">{act.points} pts</span>
-                    </div>
-                  );
-                })}
-              </div>
-            ))}
-          </div>
-        )}
-
-        <div className="modal-actions">
-          <button className="btn-primary" onClick={onClose}>Done</button>
-        </div>
+  if (loading) {
+    return (
+      <div className="flex justify-center py-10">
+        <div className="w-8 h-8 rounded-full shimmer-bg" />
       </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="space-y-4 max-h-96 overflow-y-auto pr-1">
+        {categories.map(cat => (
+          <div key={cat.id}>
+            <div className="flex items-center gap-2 mb-2 pb-1 border-b border-border">
+              <span className="text-xl">{cat.icon}</span>
+              <span className="font-extrabold text-sm" style={{ color: cat.color }}>{cat.name}</span>
+            </div>
+            <div className="space-y-1">
+              {cat.activities.map(act => {
+                const isActive = childActivityMap[act.id]?.is_active ?? false;
+                return (
+                  <div
+                    key={act.id}
+                    className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-colors ${isActive ? 'bg-primary/10' : 'hover:bg-muted'}`}
+                    onClick={() => handleToggle(act.id)}
+                  >
+                    <div className={`w-6 h-6 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-colors ${isActive ? 'bg-primary border-primary' : 'border-input'}`}>
+                      {saving === act.id ? (
+                        <div className="w-3 h-3 rounded-full shimmer-bg" />
+                      ) : isActive ? (
+                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                          <path d="M2 6l3 3 5-5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      ) : null}
+                    </div>
+                    <span className={`flex-1 text-sm font-bold ${isActive ? 'text-primary' : 'text-foreground'}`}>{act.name}</span>
+                    <Badge variant={isActive ? 'default' : 'outline'} className="text-xs">{act.points} pts</Badge>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+      <Button className="w-full" onClick={onClose}>Done</Button>
     </div>
   );
 }
 
-// ── Change PIN Modal ───────────────────────────────────────
+// ── Change PIN Form ────────────────────────────────────────
 
-interface ChangePinModalProps {
+interface ChangePinFormProps {
   child: Child;
   onClose: () => void;
   onSaved: () => void;
 }
 
-function ChangePinModal({ child, onClose, onSaved }: ChangePinModalProps) {
+function ChangePinForm({ child: _child, onClose, onSaved }: ChangePinFormProps) {
   const [pin, setPin] = useState('');
   const [pin2, setPin2] = useState('');
   const [error, setError] = useState('');
@@ -513,7 +560,7 @@ function ChangePinModal({ child, onClose, onSaved }: ChangePinModalProps) {
     }
     setSaving(true);
     const pin_hash = await hashPin(pin);
-    const result = await updateChild(child.id, { pin_hash });
+    const result = await updateChild(_child.id, { pin_hash });
     setSaving(false);
     if (!result) {
       setError('Failed to update PIN.');
@@ -523,51 +570,42 @@ function ChangePinModal({ child, onClose, onSaved }: ChangePinModalProps) {
   };
 
   return (
-    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="modal">
-        <div className="modal-header">
-          <h3>Change PIN for {child.name}</h3>
-          <button className="modal-close" onClick={onClose}>✕</button>
+    <form onSubmit={handleSave} className="space-y-4">
+      {error && (
+        <div className="rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-sm font-semibold p-3">
+          {error}
         </div>
-        <p className="modal-sub">Enter a new 4-digit PIN</p>
-
-        {error && <div className="alert alert-error">{error}</div>}
-
-        <form className="modal-form" onSubmit={handleSave}>
-          <div className="form-group">
-            <label className="form-label">New PIN</label>
-            <input
-              className="form-input"
-              placeholder="4 digits"
-              value={pin}
-              onChange={e => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
-              type="tel"
-              inputMode="numeric"
-              maxLength={4}
-              required
-            />
-          </div>
-          <div className="form-group">
-            <label className="form-label">Confirm New PIN</label>
-            <input
-              className="form-input"
-              placeholder="Repeat PIN"
-              value={pin2}
-              onChange={e => setPin2(e.target.value.replace(/\D/g, '').slice(0, 4))}
-              type="tel"
-              inputMode="numeric"
-              maxLength={4}
-              required
-            />
-          </div>
-          <div className="modal-actions">
-            <button type="button" className="btn-ghost" onClick={onClose}>Cancel</button>
-            <button type="submit" className="btn-primary" disabled={saving}>
-              {saving ? 'Saving...' : 'Save PIN'}
-            </button>
-          </div>
-        </form>
+      )}
+      <div className="space-y-2">
+        <Label>New PIN</Label>
+        <Input
+          placeholder="4 digits"
+          value={pin}
+          onChange={e => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+          type="tel"
+          inputMode="numeric"
+          maxLength={4}
+          required
+        />
       </div>
-    </div>
+      <div className="space-y-2">
+        <Label>Confirm New PIN</Label>
+        <Input
+          placeholder="Repeat PIN"
+          value={pin2}
+          onChange={e => setPin2(e.target.value.replace(/\D/g, '').slice(0, 4))}
+          type="tel"
+          inputMode="numeric"
+          maxLength={4}
+          required
+        />
+      </div>
+      <div className="flex gap-3">
+        <Button type="button" variant="ghost" className="flex-1" onClick={onClose}>Cancel</Button>
+        <Button type="submit" className="flex-1" disabled={saving}>
+          {saving ? 'Saving...' : 'Save PIN'}
+        </Button>
+      </div>
+    </form>
   );
 }
