@@ -85,7 +85,7 @@ export async function findChildByBirthdateAndPin(birthdate: string, pinHash: str
 export async function getChildActivities(childId: string): Promise<ChildActivity[]> {
   const { data } = await supabase
     .from('child_activities')
-    .select('*, activities(*, activity_categories(*))')
+    .select('*, activity:activities(*, activity_categories(*))')
     .eq('child_id', childId)
     .eq('is_active', true);
   return (data ?? []) as ChildActivity[];
@@ -94,7 +94,7 @@ export async function getChildActivities(childId: string): Promise<ChildActivity
 export async function getAllChildActivities(childId: string): Promise<ChildActivity[]> {
   const { data } = await supabase
     .from('child_activities')
-    .select('*, activities(*, activity_categories(*))')
+    .select('*, activity:activities(*, activity_categories(*))')
     .eq('child_id', childId);
   return (data ?? []) as ChildActivity[];
 }
