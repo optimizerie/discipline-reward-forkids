@@ -27,8 +27,8 @@ export function WeeklyChart({ data, color = '#6c5ce7' }: Props) {
   const todayGradId = `bar-gradient-today-${color.replace('#', '')}`;
 
   return (
-    <div className="weekly-chart-wrapper">
-      <div className="weekly-chart-title">Last 7 Days</div>
+    <div className="w-full bg-white rounded-2xl p-4 shadow-sm border border-border">
+      <div className="text-sm font-extrabold text-muted-foreground mb-3">Last 7 Days</div>
       <svg
         width="100%"
         viewBox={`0 0 ${svgWidth} ${svgHeight}`}
