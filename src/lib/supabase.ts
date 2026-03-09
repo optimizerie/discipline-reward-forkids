@@ -136,6 +136,18 @@ export async function getTodayLogs(childId: string): Promise<string[]> {
   return getLogsForDate(childId, new Date().toISOString().split('T')[0]);
 }
 
+export async function getActivityLogsForRange(
+  childId: string, startDate: string, endDate: string
+): Promise<{ activity_id: string; completed_date: string }[]> {
+  const { data } = await supabase
+    .from('activity_logs')
+    .select('activity_id, completed_date')
+    .eq('child_id', childId)
+    .gte('completed_date', startDate)
+    .lte('completed_date', endDate);
+  return data ?? [];
+}
+
 export async function getWeeklyPoints(childId: string): Promise<DayPoints[]> {
   const days: DayPoints[] = [];
   for (let i = 6; i >= 0; i--) {

@@ -2,8 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuth, navigate } from '../App';
 import {
   getChildren, createChild, updateChild,
-  getActivities, getAllChildActivities, toggleChildActivity,
-  getTotalPoints, getCurrentStreak, getWeeklyPoints, signOut
+  getActivities, getChildActivities, getAllChildActivities, toggleChildActivity,
+  getTotalPoints, getCurrentStreak, getWeeklyPoints, getActivityLogsForRange, signOut
 } from '../lib/supabase';
 import { hashPin } from '../lib/auth';
 import type { Child, Activity, ChildActivity, DayPoints } from '../types';
@@ -202,7 +202,37 @@ interface ChildCardProps {
 function ChildCard({ child, stats, onManage, onChangePin }: ChildCardProps) {
   const initials = child.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
   const maxPoints = Math.max(...stats.weeklyData.map(d => d.points), 1);
-  const today = new Date().toISOString().split('T')[0];
+  const BAR_MAX_PX = 48;
+
+  // Last 7 days date strings
+  const last7 = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(); d.setDate(d.getDate() - (6 - i));
+    return d.toISOString().split('T')[0];
+  });
+  const today = last7[6];
+  const DAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+
+  // Activity completion data
+  const [activities, setActivities] = useState<import('../types').ChildActivity[]>([]);
+  const [logMap, setLogMap] = useState<Record<string, Set<string>>>({});
+
+  useEffect(() => {
+    const load = async () => {
+      const [acts, logs] = await Promise.all([
+        getChildActivities(child.id),
+        getActivityLogsForRange(child.id, last7[0], last7[6]),
+      ]);
+      setActivities(acts);
+      const map: Record<string, Set<string>> = {};
+      for (const log of logs) {
+        if (!map[log.completed_date]) map[log.completed_date] = new Set();
+        map[log.completed_date].add(log.activity_id);
+      }
+      setLogMap(map);
+    };
+    load();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [child.id]);
 
   const streakVariant = stats.streak >= 7 ? 'warning' : stats.streak >= 3 ? 'secondary' : 'default';
 
@@ -237,36 +267,87 @@ function ChildCard({ child, stats, onManage, onChangePin }: ChildCardProps) {
           </Badge>
         </div>
 
-        {/* Mini bar chart */}
+        {/* Bar chart — fixed pixel heights */}
         {stats.weeklyData.length > 0 && (
-          <div className="mb-4">
-            <p className="text-xs font-bold text-muted-foreground mb-2">Last 7 Days</p>
-            <div className="flex items-end gap-1 h-14">
+          <div className="mb-5">
+            <p className="text-xs font-bold text-muted-foreground mb-2">Points — Last 7 Days</p>
+            <div className="flex items-end gap-1" style={{ height: `${BAR_MAX_PX + 20}px` }}>
               {stats.weeklyData.map(day => {
                 const isToday = day.date === today;
-                const heightPct = day.points === 0 ? 4 : Math.max(8, (day.points / maxPoints) * 100);
+                const barPx = day.points === 0 ? 3 : Math.max(6, (day.points / maxPoints) * BAR_MAX_PX);
                 const d = new Date(day.date + 'T12:00:00');
-                const label = ['S', 'M', 'T', 'W', 'T', 'F', 'S'][d.getDay()];
+                const label = DAY_LABELS[d.getDay()];
                 return (
-                  <div key={day.date} className="flex-1 flex flex-col items-center gap-0.5">
+                  <div key={day.date} className="flex-1 flex flex-col items-center gap-0.5" style={{ justifyContent: 'flex-end' }}>
+                    {day.points > 0 && (
+                      <span className="text-[9px] font-black" style={{ color: isToday ? '#fd7043' : child.avatar_color }}>
+                        {day.points}
+                      </span>
+                    )}
                     <div
                       className="w-full rounded-sm transition-all"
                       style={{
-                        height: `${heightPct}%`,
+                        height: `${barPx}px`,
                         background: isToday ? '#fd7043' : child.avatar_color,
-                        opacity: day.points === 0 ? 0.2 : 1,
-                        minHeight: 3,
+                        opacity: day.points === 0 ? 0.15 : 1,
                       }}
                     />
-                    <span
-                      className="text-[10px] font-black"
-                      style={{ color: isToday ? '#fd7043' : '#9b94c9' }}
-                    >
+                    <span className="text-[10px] font-black" style={{ color: isToday ? '#fd7043' : '#9b94c9' }}>
                       {isToday ? '•' : label}
                     </span>
                   </div>
                 );
               })}
+            </div>
+          </div>
+        )}
+
+        {/* Activity completion grid */}
+        {activities.length > 0 && (
+          <div className="mb-4">
+            <p className="text-xs font-bold text-muted-foreground mb-2">Activity Completion</p>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr>
+                    <th className="text-left font-bold text-muted-foreground pb-1 pr-2 w-24">Activity</th>
+                    {last7.map(date => {
+                      const d = new Date(date + 'T12:00:00');
+                      const isT = date === today;
+                      return (
+                        <th key={date} className="text-center pb-1 w-7">
+                          <span className="font-black text-[10px]" style={{ color: isT ? '#fd7043' : '#9b94c9' }}>
+                            {isT ? '•' : DAY_LABELS[d.getDay()]}
+                          </span>
+                        </th>
+                      );
+                    })}
+                  </tr>
+                </thead>
+                <tbody>
+                  {activities.map(act => (
+                    <tr key={act.id}>
+                      <td className="pr-2 py-0.5 font-semibold text-foreground truncate max-w-[96px]" title={act.activity?.name}>
+                        {act.activity?.name ?? '—'}
+                      </td>
+                      {last7.map(date => {
+                        const done = logMap[date]?.has(act.activity_id);
+                        return (
+                          <td key={date} className="text-center py-0.5">
+                            <div
+                              className="w-4 h-4 rounded-sm mx-auto"
+                              style={{
+                                background: done ? child.avatar_color : 'transparent',
+                                border: `1.5px solid ${done ? child.avatar_color : '#e2e8f0'}`,
+                              }}
+                            />
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         )}
