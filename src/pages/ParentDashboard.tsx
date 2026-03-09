@@ -210,7 +210,7 @@ function ChildCard({ child, stats, onManage, onChangePin }: ChildCardProps) {
     return d.toISOString().split('T')[0];
   });
   const today = last7[6];
-  const DAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+  const DAY_LABELS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 
   // Activity completion data
   const [activities, setActivities] = useState<import('../types').ChildActivity[]>([]);
@@ -293,7 +293,7 @@ function ChildCard({ child, stats, onManage, onChangePin }: ChildCardProps) {
                       }}
                     />
                     <span className="text-[10px] font-black" style={{ color: isToday ? '#fd7043' : '#9b94c9' }}>
-                      {isToday ? '•' : label}
+                      {label}
                     </span>
                   </div>
                 );
@@ -317,7 +317,7 @@ function ChildCard({ child, stats, onManage, onChangePin }: ChildCardProps) {
                       return (
                         <th key={date} className="text-center pb-1 w-7">
                           <span className="font-black text-[10px]" style={{ color: isT ? '#fd7043' : '#9b94c9' }}>
-                            {isT ? '•' : DAY_LABELS[d.getDay()]}
+                            {DAY_LABELS[d.getDay()]}
                           </span>
                         </th>
                       );
