@@ -63,12 +63,38 @@ export function ChildDashboard() {
   const [totalPoints, setTotalPoints] = useState(0);
   const [streak, setStreak] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [dailyImage, setDailyImage] = useState<string | null>(null);
-  const [imageLoading, setImageLoading] = useState(true);
   const [showCelebration, setShowCelebration] = useState(false);
   const [celebImage, setCelebImage] = useState<string | null>(null);
   const [celebImageLoading, setCelebImageLoading] = useState(false);
   const celebrationShownRef = useRef(false);
+
+  // Compute smart tip based on current data
+  const smartTip = (() => {
+    if (activities.length === 0) return null;
+    const remaining = activities.filter(a => !completedToday.has(a.activity_id));
+    const remainingPts = remaining.reduce((s, a) => s + (a.activity?.points ?? 0), 0);
+    const doneCount = activities.length - remaining.length;
+    const allDone = remaining.length === 0;
+
+    if (allDone) {
+      if (streak >= 7) return { icon: ICON_KEYS.STREAK_FIRE, color: '#f59e0b', title: `${streak}-day streak!`, body: `You're on fire! Keep it going tomorrow to make it ${streak + 1} days.` };
+      return { icon: ICON_KEYS.TROPHY, color: '#6c5ce7', title: 'Perfect day!', body: `You earned all your points today. Do it again tomorrow to build your streak!` };
+    }
+
+    // Check yesterday completions to flag consistency
+    const missedYesterday = activities.filter(a => !completedYesterday.has(a.activity_id));
+    const missedBoth = remaining.filter(a => missedYesterday.some(m => m.activity_id === a.activity_id));
+    if (missedBoth.length > 0) {
+      const act = missedBoth[0];
+      return { icon: ICON_KEYS.STREAK_FIRE, color: '#fd7043', title: 'Break the pattern!', body: `You skipped "${act.activity?.name}" yesterday too. Doing it today protects your streak!` };
+    }
+
+    if (doneCount === 0) {
+      return { icon: ICON_KEYS.POINTS_STAR, color: '#6c5ce7', title: `${remainingPts} points waiting!`, body: `Complete all ${activities.length} activities today to earn your full score.` };
+    }
+
+    return { icon: ICON_KEYS.POINTS_STAR, color: '#00b894', title: `${remainingPts} more points to go!`, body: `You've done ${doneCount} of ${activities.length} activities. Finish the rest to max out today!` };
+  })();
 
   const todayPoints = activities
     .filter(a => completedToday.has(a.activity_id))
@@ -95,14 +121,6 @@ export function ChildDashboard() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  // Generate daily image once per session
-  useEffect(() => {
-    setImageLoading(true);
-    generateEncouragingImage(
-      childName,
-      'The child is working on daily activities including chores, studying, and sports practice. Show a happy cartoon child ready for their day'
-    ).then(img => { setDailyImage(img); setImageLoading(false); });
-  }, [childName]);
 
   // All-done celebration (today only)
   useEffect(() => {
@@ -306,18 +324,18 @@ export function ChildDashboard() {
 
       {/* Content */}
       <div className="max-w-lg mx-auto px-4 -mt-4 pb-8">
-        {/* Gemini daily image */}
-        <Card className="mb-4 overflow-hidden shadow-lg">
-          {imageLoading ? (
-            <div className="h-40 shimmer-bg" />
-          ) : dailyImage ? (
-            <img src={dailyImage} alt="Today's adventure" className="w-full h-40 object-cover" />
-          ) : (
-            <div className="h-40 bg-gradient-to-r from-violet-100 to-orange-100 flex items-center justify-center">
-              <GeminiIcon iconKey={ICON_KEYS.APP_LOGO} size={64} className="rounded-2xl opacity-60" />
-            </div>
-          )}
-        </Card>
+        {/* Smart tip card */}
+        {!loading && smartTip && (
+          <Card className="mb-4 overflow-hidden shadow-lg border-0" style={{ background: `linear-gradient(135deg, ${smartTip.color}18, ${smartTip.color}08)`, borderLeft: `4px solid ${smartTip.color}` }}>
+            <CardContent className="p-4 flex items-center gap-4">
+              <GeminiIcon iconKey={smartTip.icon} size={48} className="rounded-2xl flex-shrink-0" />
+              <div>
+                <p className="font-black text-base" style={{ color: smartTip.color }}>{smartTip.title}</p>
+                <p className="text-sm font-semibold text-muted-foreground mt-0.5">{smartTip.body}</p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Today / Yesterday tabs */}
         <Tabs value={activeTab} onValueChange={v => setActiveTab(v as 'today' | 'yesterday')} className="mb-4">
